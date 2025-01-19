@@ -4,7 +4,7 @@ import com.uexcel.apartment.constants.Month;
 import com.uexcel.apartment.dto.AvailableApartmentDto;
 import com.uexcel.apartment.dto.ReservedRoomInFoDto;
 import com.uexcel.apartment.exception.AppExceptions;
-import com.uexcel.apartment.mapper.GetRsvByRoomNumberMapper;
+import com.uexcel.apartment.mapper.GetRsvByApartmentCodeMapper;
 import com.uexcel.apartment.model.Apartment;
 import com.uexcel.apartment.model.ReservationDates;
 import com.uexcel.apartment.persistence.ApartmentRepository;
@@ -24,12 +24,12 @@ import static java.util.stream.Collectors.toList;
 @AllArgsConstructor
 public class IExecutiveRoomServiceImpl implements IExecutiveRoomService {
     private final ApartmentRepository apartmentRepository;
-    private final GetRsvByRoomNumberMapper rsvMapper;
+    private final GetRsvByApartmentCodeMapper rsvMapper;
     private final Month month;
     @Override
     public ReservedRoomInFoDto getRegularRoomByRoomNumber(String roomNumber) {
         List<ReservationDates> regularRoom =
-                apartmentRepository.findByRoomNumberJpql(roomNumber);
+                apartmentRepository.findByApartmentCodeJpql(roomNumber);
            return   rsvMapper.toReservedRoomInFoDto(regularRoom,new ReservedRoomInFoDto());
     }
 

@@ -278,7 +278,7 @@ public class IReservationServiceImpl implements IReservationService {
                     checking if the room is checkin without reservation for the desired dates.
                  */
                     Checkin checkin = checkinRepository
-                            .findByExecutiveRoom_RoomNumberAndDateOut(room.getApartmentCode(), null);
+                            .findByApartment_ApartmentCodeAndDateOut(room.getApartmentCode(), null);
                     if (checkin != null) {
                         int numberOfDays = checkin.getNumberOfDays();
                         String checkinDate = checkin.getDateIn().split(" ")[0];

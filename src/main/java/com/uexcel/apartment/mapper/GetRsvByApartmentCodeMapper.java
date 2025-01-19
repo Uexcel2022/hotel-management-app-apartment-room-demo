@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-public class GetRsvByRoomNumberMapper {
+public class GetRsvByApartmentCodeMapper {
     /*
          mapping reservation dates fetched by room number to ReservedRoomInFoDto
     */

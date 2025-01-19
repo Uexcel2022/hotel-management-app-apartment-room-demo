@@ -28,7 +28,7 @@ public class ICheckinImpl implements ICheckinService {
     @Override
     public ResponseDto checkin(CheckinRequestDto checkinRequestDto) {
         Checkin inUse = checkinRepository
-                .findByExecutiveRoom_RoomNumberAndDateOut(checkinRequestDto.getApartmentCode(), null);
+                .findByApartment_ApartmentCodeAndDateOut(checkinRequestDto.getApartmentCode(), null);
         if (inUse != null) {
             throw new AppExceptions(
                     HttpStatus.BAD_REQUEST.value(),
@@ -46,7 +46,7 @@ public class ICheckinImpl implements ICheckinService {
         }
 
         List<ReservationDates> rsvDates = apartmentRepository
-                .findByRoomNumberJpql(checkinRequestDto.getApartmentCode());
+                .findByApartmentCodeJpql(checkinRequestDto.getApartmentCode());
 
         Apartment room = null;
         for (LocalDate checkinDate : intendedCheckinDates) {
@@ -113,7 +113,7 @@ public class ICheckinImpl implements ICheckinService {
                 );
             }
          Checkin toCheckoutRoom =  checkinRepository
-                 .findByExecutiveRoom_RoomNumberAndDateOut(roomNumber,null);
+                 .findByApartment_ApartmentCodeAndDateOut(roomNumber,null);
                  if(toCheckoutRoom == null) {
                      throw new AppExceptions(HttpStatus.BAD_REQUEST.value(),
                              Constants.BadRequest, String.format("Room %s is not in use.", roomNumber));

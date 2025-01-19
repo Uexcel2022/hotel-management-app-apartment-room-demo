@@ -17,7 +17,7 @@ public class ReservationDates {
     @ManyToOne(optional = false,cascade = CascadeType.ALL,fetch = FetchType.EAGER)
     private Reservation reservation;
     @ManyToOne(optional = false,cascade = CascadeType.ALL,fetch = FetchType.EAGER)
-    @JoinColumn(name = "roomNumber",referencedColumnName = "roomNumber",
-            foreignKey = @ForeignKey(name = "FK_RD_REGULAR"))
+    @JoinColumn(name = "apartmentCode",referencedColumnName = "apartmentCode",
+            foreignKey = @ForeignKey(name = "FK_RD_APARTMENT"))
     private Apartment apartment;
 }

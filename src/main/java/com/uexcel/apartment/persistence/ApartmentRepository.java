@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface ApartmentRepository extends JpaRepository<Apartment, Long> {
     @Query(value = "SELECT  d FROM  ReservationDates d WHERE d.apartment.apartmentCode=:apartmentCode ")
-    List<ReservationDates> findByRoomNumberJpql(@Param("roomNumber") String roomNumber);
+    List<ReservationDates> findByApartmentCodeJpql(@Param("apartmentCode") String apartmentCode);
     boolean existsByApartmentCode(String apartmentCode);
     Apartment findByApartmentCode(String apartmentCode);
 }

@@ -2,7 +2,7 @@ spring:
   application:
       name: ${APP_NAME:apartment}
   datasource:
-    url: ${DATASOURCE_URL:jdbc:mysql://localhost:3320/apartment}
+    url: ${DATASOURCE_URL:jdbc:mysql://localhost:3030/apartment}
     driver-class-name: ${DATASOURCE_DRIVER:com.mysql.cj.jdbc.Driver}
     username:  ${DATASOURCE_USERNAME:root}
     password: ${DATASOURCE_PASSWORD:root}
