@@ -32,7 +32,7 @@ public class ICheckinImpl implements ICheckinService {
         if (inUse != null) {
             throw new AppExceptions(
                     HttpStatus.BAD_REQUEST.value(),
-                    Constants.BadRequest, String.format("Room %s is in use.", checkinRequestDto.getApartmentCode())
+                    Constants.BadRequest, String.format("Apartment %s is in use.", checkinRequestDto.getApartmentCode())
             );
         }
         /*
@@ -57,14 +57,14 @@ public class ICheckinImpl implements ICheckinService {
                 if (rsvDate != null) {
                     if (!rsvDate.getReservation().getPhone().equals(checkinRequestDto.getPhone())) {
                         throw new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
-                                String.format("Room %s is on reservation this date: %s", checkinRequestDto.getApartmentCode(), checkinDate));
+                                String.format("Apartment %s is on reservation this date: %s", checkinRequestDto.getApartmentCode(), checkinDate));
                     }
                 }
             } else {
                 room = apartmentRepository.findByApartmentCode(checkinRequestDto.getApartmentCode());
                 if (room == null) {
                     throw new AppExceptions(HttpStatus.NOT_FOUND.value(), Constants.NotFound,
-                            String.format("No regular room with roomNumber: %s ", checkinRequestDto.getApartmentCode()));
+                            String.format("No apartment with apartmentCode: %s ", checkinRequestDto.getApartmentCode()));
                 }
             }
         }
@@ -116,7 +116,7 @@ public class ICheckinImpl implements ICheckinService {
                  .findByApartment_ApartmentCodeAndDateOut(roomNumber,null);
                  if(toCheckoutRoom == null) {
                      throw new AppExceptions(HttpStatus.BAD_REQUEST.value(),
-                             Constants.BadRequest, String.format("Room %s is not in use.", roomNumber));
+                             Constants.BadRequest, String.format("Apartment %s is not in use.", roomNumber));
                  }
           return  List.of(checkinMapper.toCheckinResponseDto(toCheckoutRoom,new CheckinResponseDto()));
         }

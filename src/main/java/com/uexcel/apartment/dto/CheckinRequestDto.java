@@ -10,7 +10,7 @@ import lombok.Setter;
 @Getter @Setter
 public class CheckinRequestDto {
     @NotNull(message = "Room number is required.")
-    @Pattern(regexp = "E[0-9]{3}",message = "In valid room number.")
+    @Pattern(regexp = "(A1|A2)[0-9]{3}",message = "In valid room number.")
     private  String apartmentCode;
     @Positive(message = "Number of days must be greater than zero.")
     @NotNull(message = "Number of days can not be null.")

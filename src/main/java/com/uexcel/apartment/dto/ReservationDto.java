@@ -21,5 +21,5 @@ public class ReservationDto {
     @Pattern(regexp = "0[7-9][01][0-9]{8}", message = "Invalid phone number.")
     private String phone;
     @Valid
-    private List<DateApartmentsDto> dates;
+    private List<DateApartmentsDto> apartments;
 }

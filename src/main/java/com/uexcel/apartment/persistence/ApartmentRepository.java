@@ -1,6 +1,7 @@
 package com.uexcel.apartment.persistence;
 
 import com.uexcel.apartment.model.Apartment;
+import com.uexcel.apartment.model.Reservation;
 import com.uexcel.apartment.model.ReservationDates;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,4 +15,5 @@ public interface ApartmentRepository extends JpaRepository<Apartment, Long> {
     List<ReservationDates> findByApartmentCodeJpql(@Param("apartmentCode") String apartmentCode);
     boolean existsByApartmentCode(String apartmentCode);
     Apartment findByApartmentCode(String apartmentCode);
+
 }

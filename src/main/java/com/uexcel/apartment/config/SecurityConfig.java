@@ -45,7 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorizeRequests ->
                 authorizeRequests.requestMatchers("/api/checkin/**").hasRole("ADMIN")
                         .requestMatchers("/api/free/room/**").hasAnyRole("ADMIN","USER")
-                        .requestMatchers("/api/regular/**").hasAnyRole("ADMIN","USER")
+                        .requestMatchers("/api/apartment/**").hasAnyRole("ADMIN","USER")
                         .requestMatchers("/api/reservation/**").hasAnyRole("ADMIN","USER")
                         .requestMatchers(HttpMethod.PUT).hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE).hasRole("ADMIN")

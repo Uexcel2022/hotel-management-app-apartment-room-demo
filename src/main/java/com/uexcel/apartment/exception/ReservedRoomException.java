@@ -9,9 +9,9 @@ import java.util.List;
 @Getter
 @ResponseStatus(value = HttpStatus.BAD_REQUEST)
 public class ReservedRoomException extends RuntimeException {
-    private List<DateApartmentsDto> dateRooms;
-    public ReservedRoomException (List<DateApartmentsDto> dates) {
+    private List<DateApartmentsDto> dateApartments;
+    public ReservedRoomException (List<DateApartmentsDto> dateApartments) {
         super("Reserved Room(s) : ");
-        this.dateRooms = dates;
+        this.dateApartments = dateApartments;
     }
 }

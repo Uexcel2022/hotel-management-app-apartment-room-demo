@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @AllArgsConstructor
@@ -37,7 +38,7 @@ public class IReservationServiceImpl implements IReservationService {
 
     @Override
     public List<FreeApartmentDto> getFreeRoomsByMonth(String monthName) {
-        if(environment.getProperty("NUMBER_OF_ROOMS")==null){
+        if(environment.getProperty("NUMBER_OF_A1")==null){
             throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
                     Constants.Failed,"Environment property 'NUMBER_OF_ROOMS' not set.");
         }
@@ -102,6 +103,7 @@ public class IReservationServiceImpl implements IReservationService {
     }
 
     @Override
+    @Transactional
     public List<FreeApartmentDto> getFreeRoomsByDays(Integer numberOfDays) {
         if(environment.getProperty("NUMBER_OF_ROOMS")==null){
             throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
@@ -148,82 +150,221 @@ public class IReservationServiceImpl implements IReservationService {
     @Override
     @Transactional
     public ReservationResponseDto saveReservation(ReservationDto reservationDto) {
-        if(environment.getProperty("NUMBER_OF_ROOMS")==null){
+        if(environment.getProperty("NUMBER_OF_APARTMENT_A1")==null){
             throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                    Constants.Failed, "Environment property 'NUMBER_OF_ROOMS' not set.");
+                    Constants.Failed, "Environment property 'NUMBER_OF_APARTMENT_A1' not set.");
         }
 
-        /*
-             Getting previous booking from DB by Date. Each date represents booking per room
-             The total number of date of same day represents total reserved room for the given date.
-             If the total equal the total number of room then all the rooms are reserved on that date.
-             Else if the total number + the intended reservations exceeds the number of room for the given date,
-             or any of the rooms mentioned is reserved on same date reservation fails else it passes.
+        if(environment.getProperty("NUMBER_OF_APARTMENT_A2")==null){
+            throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
+                    Constants.Failed, "Environment property 'NUMBER_OF_APARTMENT_A1' not set.");
+        }
+       /*
+       separation of apartment by code initials
+        */
+        List<DateApartmentsDto> desiredA1Apartments = new ArrayList<>();
+        List<DateApartmentsDto> desiredA2Apartments = new ArrayList<>();
+        List<Reservation> reservationList = new ArrayList<>();
+        List<ReservationDates> reservationDateList = new ArrayList<>();
+        List<DateApartmentsDto> listOfBookedApartment = new ArrayList<>();
+
+        reservationDto.getApartments().forEach(apartment -> {
+            for(int i = 0; i < apartment.getApartmentCodes().size();i++){
+                String apartmentCode = apartment.getApartmentCodes().get(i);
+                if(!apartmentRepository.existsByApartmentCode(apartmentCode)){
+                    throw  new AppExceptions(HttpStatus.NOT_FOUND.value(), Constants.NotFound,
+                            "No apartment found for apartment code: " + apartmentCode);
+                }
+                /*
+                Checking for duplicate reservation for A1 apartments
+                 */
+                if(apartmentCode.contains("A1")){
+                    DateApartmentsDto newDt1 =   new DateApartmentsDto(apartment.getDate(),List.of(apartmentCode));
+                    if(!desiredA1Apartments.isEmpty()){
+                        desiredA1Apartments.forEach(ap->{
+                            for(DateApartmentsDto dat : desiredA1Apartments){
+                                if(dat.equals(newDt1)){
+                                    throw new AppExceptions(
+                                            HttpStatus.BAD_REQUEST.value(), Constants.BadRequest, "Duplicate reservation for this apartment: " + apartmentCode);
+                                }
+                            }
+                        });
+                    }
+                    desiredA1Apartments.add(newDt1);
+                }
+                /*
+                Checking for duplicate reservation for A2 apartments
+                 */
+                if(apartmentCode.contains("A2")){
+                    DateApartmentsDto  newDt2 = new DateApartmentsDto(apartment.getDate(),List.of(apartmentCode));
+                    if(!desiredA2Apartments.isEmpty()){
+                        desiredA2Apartments.forEach(ap->{
+                            for(DateApartmentsDto dat : desiredA2Apartments){
+                                if(dat.equals(newDt2)){
+                                    throw new AppExceptions(
+                                            HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
+                                            "Duplicate reservation for this apartment: " + apartmentCode);
+                                }
+                            }
+                        });
+                    }
+                    desiredA2Apartments.add(newDt2);
+                }
+            }
+        });
+
+        /* throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
+                    "Environment property 'NUMBER_OF_APARTMENT_A1/A2' not an integer.");
+             Getting the number of the apartments respectively
          */
-        List<DateApartmentsDto> dateApartmentsDtos = new ArrayList<>();
-        int numberOfRooms;
+        int numberOfaA1;
+        int numberOfaA2;
         try {
-            numberOfRooms = Integer.parseInt(environment.getProperty("NUMBER_OF_ROOMS"));
+            numberOfaA1 = Integer.parseInt(environment.getProperty("NUMBER_OF_APARTMENT_A1"));
         }catch(NumberFormatException e){
             throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
-                    "Environment property 'NUMBER_OF_ROOMS' not an integer.");
+                    "Environment property 'NUMBER_OF_APARTMENT_A2' not an integer.");
         }
-        List<FreeApartmentDto> unAvailableDates = new ArrayList<>();
-        DateApartmentsDto booking;
-        for(int i = 0; i < reservationDto.getDates().size();i++){
-            booking = reservationDto.getDates().get(i);
-           List<ReservationDates> reservedDates =
-                   reservationDateRepository.findByDate(booking.getDate());
-           if(reservedDates == null){
-               continue;
-           }
-           int reservations = reservedDates.size();
-            int intendToBeReserved = booking.getApartments().size();
-           if(numberOfRooms - (reservations + intendToBeReserved) < 0){
-               unAvailableDates.add(
-                       new FreeApartmentDto(booking.getDate(),(numberOfRooms-reservations)));
-           }
+        try {
+            numberOfaA2 = Integer.parseInt(environment.getProperty("NUMBER_OF_APARTMENT_A2"));
+        }catch(NumberFormatException e){
+            throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
+                    "Environment property 'NUMBER_OF_APARTMENT_A2' not an integer.");
+        }
+        /*
+           Checking the available apartments vs number desired on a given date.
+         */
+
+        if(!desiredA1Apartments.isEmpty()){
+            for(DateApartmentsDto dateApartments : desiredA1Apartments){
+                AtomicInteger countA1 = new AtomicInteger();
+                List<ReservationDates> reservedDates =
+                        reservationDateRepository.findByDate(dateApartments.getDate());
+                if(!reservedDates.isEmpty()) {
+                    reservedDates.forEach(var -> {
+                        if (var.getApartment().getApartmentCode().contains("A1")) {
+                            countA1.getAndIncrement();
+                        }
+                    });
+                }
+                int desiredNumberOfA1ApartmentsForGivenDate = desiredA1Apartments.stream()
+                        .filter(var->var.getDate().equals(dateApartments.getDate()))
+                        .map(var->var.getApartmentCodes()).toList().size();
+
+                if(numberOfaA1 - (desiredNumberOfA1ApartmentsForGivenDate + countA1.get()) < 0){
+                    ReservationResponseDto rDto = new ReservationResponseDto(
+                            HttpStatus.BAD_REQUEST.value(), "Bad Request",
+                            "Available number of A1 apartments exceeded for the given date.");
+                    rDto.getInfo().add(new FreeApartmentDto(dateApartments.getDate(),
+                            (numberOfaA1 - countA1.get())));
+                    return rDto;
+                }
+             }
         }
 
-        if(!unAvailableDates.isEmpty()){
-            ReservationResponseDto rDto = new ReservationResponseDto(
-                    HttpStatus.BAD_REQUEST.value(), "Bad Request",
-                    "Available number of rooms exceeded.");
-            rDto.getInfo().addAll(unAvailableDates);
-            return rDto;
+        if(!desiredA2Apartments.isEmpty()){
+            for(DateApartmentsDto dateApartments : desiredA2Apartments){
+                AtomicInteger countA2 = new AtomicInteger();
+                List<ReservationDates> reservedDates =
+                        reservationDateRepository.findByDate(dateApartments.getDate());
+                if(!reservedDates.isEmpty()) {
+                    reservedDates.forEach(var -> {
+                        if (var.getApartment().getApartmentCode().contains("A2")) {
+                            countA2.getAndIncrement();
+                        }
+                    });
+                }
+                int desiredNumberOfA2ApartmentsForGivenDate = desiredA2Apartments.stream()
+                        .filter(var->var.getDate().equals(dateApartments.getDate()))
+                        .map(var->var.getApartmentCodes()).toList().size();
+
+                if(numberOfaA2 - (desiredNumberOfA2ApartmentsForGivenDate + countA2.get()) < 0){
+                    ReservationResponseDto rDto = new ReservationResponseDto(
+                            HttpStatus.BAD_REQUEST.value(), "Bad Request",
+                            "Available number of A2 apartments exceeded for the given date.");
+                    rDto.getInfo().add(new FreeApartmentDto(dateApartments.getDate(),
+                            (numberOfaA2 - countA2.get())));
+                    return rDto;
+                }
+            }
+        }
+        Reservation savedReservation = reservationRepository.findReservationByPhone(reservationDto.getPhone());
+        if(savedReservation == null){
+            Reservation  reservation = new Reservation();
+            reservation.setName(reservationDto.getName());
+            reservation.setPhone(reservationDto.getPhone());
+            reservation.setDescription("A1Apartment");
+            savedReservation  = reservationRepository.save(reservation);
         }
 
         /*
-            checking for existing reservation if found add the current reservation to it.
-            (to maintain phone number unique constraint in the reservation table) else create new reservation.
+        A1 apartment saving logic
          */
-        Reservation savedReservation = reservationRepository
-                .findReservationByPhone(reservationDto.getPhone());
-        if(savedReservation == null) {
-            Reservation reservation = new Reservation();
-            reservation.setName(reservationDto.getName());
-            reservation.setPhone(reservationDto.getPhone());
-            reservation.setDescription("executive");
-            savedReservation = reservationRepository.save(reservation);
-            if (savedReservation.getId() == null) {
-                throw new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                        Constants.Failed, "Fail to save reservation.");
 
-            }
+        if(!desiredA1Apartments.isEmpty()) {
+            Reservation finalSavedReservation = savedReservation;
+            desiredA1Apartments.forEach(var -> {
+                List<String> apartmentCode =  var.getApartmentCodes();
+                apartmentCode.forEach(code -> {
+                boolean isCheckin=
+                        checkinRepository.existsByApartment_ApartmentCodeAndDateOut(code,null);
+                if(isCheckin){
+                    throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
+                            String.format("A1 apartment '%s' is in use.", code));
+                }
+                Apartment res = apartmentRepository.findByApartmentCode(code);
+                    if(!res.getReservationDates().isEmpty()){
+                        res.getReservationDates().forEach(rsvDate -> {
+                            if(rsvDate.getDate().equals(var.getDate())){
+                                listOfBookedApartment.add(new DateApartmentsDto(rsvDate.getDate(),List.of(code)));
+                            }
+                        });
+                    }
+                    ReservationDates reservationDate = new ReservationDates();
+                    reservationDate.setDate(var.getDate());
+                    reservationDate.setApartment(res);
+                    reservationDate.setReservation(finalSavedReservation);
+                    reservationDateRepository.save(reservationDate);
+                });
+            });
         }
 
-        List<ReservationDates> reservationDates = getReservationDates(reservationDto, savedReservation, dateApartmentsDtos);
+/*
+A2 apartment saving logic
+ */
 
-        if(!dateApartmentsDtos.isEmpty()){
-            throw new ReservedRoomException(dateApartmentsDtos);
+        if(!desiredA2Apartments.isEmpty()) {
+            Reservation finalSavedReservation = savedReservation;
+            desiredA2Apartments.forEach(var -> {
+                List<String> apartmentCode =  var.getApartmentCodes();
+                apartmentCode.forEach(code -> {
+                    boolean isCheckin=
+                            checkinRepository.existsByApartment_ApartmentCodeAndDateOut(code,null);
+                    if(isCheckin){
+                        throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
+                                String.format("A2 apartment '%s' is in use.", code));
+                    }
+                    Apartment res = apartmentRepository.findByApartmentCode(code);
+                    if(!res.getReservationDates().isEmpty()){
+                        res.getReservationDates().forEach(rsvDate -> {
+                            if(rsvDate.getDate().equals(var.getDate())){
+                                listOfBookedApartment.add(new DateApartmentsDto(rsvDate.getDate(),List.of(code)));
+                            }
+                        });
+                    }
+                    ReservationDates reservationDate = new ReservationDates();
+                    reservationDate.setDate(var.getDate());
+                    reservationDate.setApartment(res);
+                    reservationDate.setReservation(finalSavedReservation);
+                    reservationDateRepository.save(reservationDate);
+                });
+            });
         }
-      List<ReservationDates> savedResDates =  reservationDateRepository.saveAll(reservationDates);
-        for(ReservationDates rs : savedResDates){
-            if(rs.getId() ==null){
-                throw new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                        Constants.Failed, "Fail to save reservation dates.");
-            }
-        }
+
+    if(!listOfBookedApartment.isEmpty()){
+        throw new ReservedRoomException(listOfBookedApartment);
+    }
+
         return new ReservationResponseDto(
                 HttpStatus.CREATED.value(), "Created",
                 "Reservation created successfully.");
@@ -258,49 +399,4 @@ public class IReservationServiceImpl implements IReservationService {
                 "Ok", "Reservation deleted successfully.");
     }
 
-    private  List<ReservationDates>  getReservationDates(
-            ReservationDto reservationDto, Reservation savedReservation, List<DateApartmentsDto> dateApartmentsDtos){
-        List<ReservationDates> reservationDates = new ArrayList<>();
-        /*
-             Streaming and creating obj of the intended reserved dates from the customer
-         */
-        reservationDto.getDates().forEach(res -> {
-            for(int i = 0; i < res.getApartments().size(); i++) {
-
-                ReservationDates reservationDate = new ReservationDates();
-
-                Apartment room =  apartmentRepository.findByApartmentCode(res.getApartments().get(i));
-                if(room == null){
-                    throw new AppExceptions(HttpStatus.NOT_FOUND.value(), Constants.NotFound,
-                            String.format("No room found with roomNumber: %s", res.getApartments().get(i)));
-                }
-                /*
-                    checking if the room is checkin without reservation for the desired dates.
-                 */
-                    Checkin checkin = checkinRepository
-                            .findByApartment_ApartmentCodeAndDateOut(room.getApartmentCode(), null);
-                    if (checkin != null) {
-                        int numberOfDays = checkin.getNumberOfDays();
-                        String checkinDate = checkin.getDateIn().split(" ")[0];
-                        LocalDate duration = LocalDate.parse(checkinDate).plusDays(numberOfDays);
-                        if (!res.getDate().isAfter(duration)) {
-                            throw new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
-                                    String.format("Room %s is not available within the period request.", room.getApartmentCode()));
-                        }
-                    }
-                /*
-                    Checking if  the room(s) is/are reserved on the desired date;
-                 */
-                    if (room != null && room.getReservationDates().stream().anyMatch(v -> v.getDate().equals(res.getDate()))) {
-                        dateApartmentsDtos.add(new DateApartmentsDto(res.getDate(), List.of(res.getApartments().get(i))));
-                    }
-                    reservationDate.setDate(res.getDate());
-                    reservationDate.setReservation(savedReservation);
-                    reservationDate.setApartment(room);
-                    reservationDates.add(reservationDate);
-            }
-        });
-
-        return reservationDates;
-    }
 }
