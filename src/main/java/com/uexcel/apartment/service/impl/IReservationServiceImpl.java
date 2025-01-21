@@ -5,7 +5,6 @@ import com.uexcel.apartment.constants.Month;
 import com.uexcel.apartment.dto.*;
 import com.uexcel.apartment.exception.AppExceptions;
 import com.uexcel.apartment.exception.ReservedRoomException;
-import com.uexcel.apartment.model.Checkin;
 import com.uexcel.apartment.model.Apartment;
 import com.uexcel.apartment.model.Reservation;
 import com.uexcel.apartment.model.ReservationDates;
