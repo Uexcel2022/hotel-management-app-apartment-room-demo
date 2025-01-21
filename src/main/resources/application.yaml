@@ -18,3 +18,5 @@ spring:
 keycloak:
   auth-server-url: ${KEYCLOAK_AUTH_URL:http://localhost:8180/realms/eazybankdev/protocol/openid-connect/auth}
   token-url: ${KEYCLOAK_TOKEN_URL:http://localhost:8180/realms/eazybankdev/protocol/openid-connect/token}
+server:
+  port: 8085
