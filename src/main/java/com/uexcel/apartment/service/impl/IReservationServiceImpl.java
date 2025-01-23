@@ -36,29 +36,41 @@ public class IReservationServiceImpl implements IReservationService {
     private final ApartmentRepository apartmentRepository;
 
     @Override
-    public List<FreeApartmentDto> getFreeRoomsByMonth(String monthName) {
+    public List<FreeApartmentDto> getFreeApartmentByMonth(String monthName,String apartmentCode) {
         if(environment.getProperty("NUMBER_OF_A1")==null){
             throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                    Constants.Failed,"Environment property 'NUMBER_OF_ROOMS' not set.");
+                    Constants.Failed,"Environment property 'NUMBER_OF_A1' not set.");
         }
+        if(environment.getProperty("NUMBER_OF_A2")==null){
+            throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
+                    Constants.Failed,"Environment property 'NUMBER_OF_A2' not set.");
+        }
+
         LocalDate now = LocalDate.now();
+        List<ReservationDates> reservations;
+        apartmentCode = apartmentCode==null?"":apartmentCode;
         if(monthName == null){
             monthName = LocalDate.now().getMonth().toString();
         }
-        int numberOfRooms;
+        int numberOfApartments;
                 try {
-                    numberOfRooms =  Integer.parseInt(environment.getProperty("NUMBER_OF_ROOMS"));
+                    if(apartmentCode.equalsIgnoreCase("a1")) {
+                        numberOfApartments = Integer.parseInt(environment.getProperty("NUMBER_OF_A1"));
+                        reservations =  reservationDateRepository.findByA1Apartment();
+                    }else {
+                        numberOfApartments = Integer.parseInt(environment.getProperty("NUMBER_OF_A2"));
+                        reservations =  reservationDateRepository.findByA2Apartment();
+                    }
                 }catch (NumberFormatException e){
-                        throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                                Constants.Failed,"Environment property 'NUMBER_OF_ROOMS' not integer.");
+                        throw new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
+                                Constants.Failed, String.format("Environment property 'NUMBER_OF_%s' not integer.",apartmentCode.toUpperCase()));
                 }
-        List<Reservation> reservations = reservationRepository.findAll();
+
         List<LocalDate> reservedDates = new ArrayList<>();
         List<FreeApartmentDto> freeApartmentDtoList =  new ArrayList<>();
         List<LocalDate> monthDates = new ArrayList<>();
-        for(Reservation reservation : reservations){
-            reservation.getReservationDates()
-                    .forEach(reservedDate->reservedDates.add(reservedDate.getDate()));
+        for(ReservationDates reservation : reservations){
+            reservedDates.add(reservation.getDate());
         }
         reservedDates.sort(LocalDate::compareTo);
         LocalDate monthStartDate = month.getStartDate(monthName.toUpperCase());
@@ -86,15 +98,16 @@ public class IReservationServiceImpl implements IReservationService {
             LocalDate date = monthStartDate.plusDays(i);
             if(monthDates.contains(date) && !freeApartmentDtoList.contains(date) &&
                     (date.equals(LocalDate.now())|| date.isAfter(LocalDate.now()))){
-                int numberOfRoomsReserved =
+
+                int numberOfApartmentReserved =
                         monthDates.stream().filter(present->present.equals(date)).toList().size();
-                int freeRooms = numberOfRooms - numberOfRoomsReserved;
-                if(freeRooms > 0) {
-                    freeApartmentDtoList.add(new FreeApartmentDto(date,freeRooms));
+                int freeApartment = numberOfApartments - numberOfApartmentReserved;
+                if(freeApartment > 0) {
+                    freeApartmentDtoList.add(new FreeApartmentDto(date, freeApartment));
                 }
             } else {
                 if(!freeApartmentDtoList.contains(date) && (date.equals(LocalDate.now())|| date.isAfter(LocalDate.now()))){
-                    freeApartmentDtoList.add(new FreeApartmentDto(date,  numberOfRooms));
+                    freeApartmentDtoList.add(new FreeApartmentDto(date, numberOfApartments));
                 }
             }
         }
@@ -103,43 +116,56 @@ public class IReservationServiceImpl implements IReservationService {
 
     @Override
     @Transactional
-    public List<FreeApartmentDto> getFreeRoomsByDays(Integer numberOfDays) {
-        if(environment.getProperty("NUMBER_OF_ROOMS")==null){
+    public List<FreeApartmentDto> getFreeApartmentByDays(Integer numberOfDays,String apartmentCode) {
+        if(environment.getProperty("NUMBER_OF_A2")==null){
             throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
-                    Constants.Failed, "Environment property 'NUMBER_OF_ROOMS' not set.");
+                    Constants.Failed,"Environment property 'NUMBER_OF_A2' not set.");
         }
-        int numberOfRooms;
+
+        if(environment.getProperty("NUMBER_OF_A1")==null){
+            throw  new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
+                    Constants.Failed,"Environment property 'NUMBER_OF_A1' not set.");
+        }
+        apartmentCode = apartmentCode==null?"a1":apartmentCode;
+        int numberOfApartments;
+        List<ReservationDates> reservations;
+
         try {
-            numberOfRooms = Integer.parseInt(environment.getProperty("NUMBER_OF_ROOMS"));
-        }catch(NumberFormatException e){
-            throw  new AppExceptions(HttpStatus.BAD_REQUEST.value(), Constants.BadRequest,
-                    "Environment property 'NUMBER_OF_ROOMS' not an integer.");
+            if(apartmentCode.equalsIgnoreCase("a1")) {
+                numberOfApartments = Integer.parseInt(environment.getProperty("NUMBER_OF_A1"));
+                reservations =  reservationDateRepository.findByA1Apartment();
+            }else {
+                numberOfApartments = Integer.parseInt(environment.getProperty("NUMBER_OF_A2"));
+                reservations =  reservationDateRepository.findByA2Apartment();
+            }
+        }catch (NumberFormatException e){
+                throw new AppExceptions(HttpStatus.EXPECTATION_FAILED.value(),
+                        Constants.Failed, String.format("Environment property 'NUMBER_OF_%s' not integer.",
+                        apartmentCode.toUpperCase()));
         }
-        List<Reservation> reservations = reservationRepository.findAll();
         if(numberOfDays == null){
-            numberOfDays = 30;
+            numberOfDays = 7;
         }
+
         List<LocalDate> reserveDates = new ArrayList<>();
         List<FreeApartmentDto> freeApartmentDtoList =  new ArrayList<>();
-        for(Reservation reservation : reservations){
-            reservation.getReservationDates()
-                    .forEach(bd-> reserveDates.add(bd.getDate()));
+        for(ReservationDates reservation : reservations){
+            reserveDates.add(reservation.getDate());
         }
         reserveDates.sort(LocalDate::compareTo);
 
         for(int i = 0; i < numberOfDays; i++){
             LocalDate date = LocalDate.now().plusDays(i);
-            if(!freeApartmentDtoList.contains(date) && reserveDates.contains(date) &&
-                    (date.equals(LocalDate.now())|| date.isAfter(LocalDate.now()))){
-                int numberOfRoomsReserved =
+            if(reserveDates.contains(date) && (date.equals(LocalDate.now())|| date.isAfter(LocalDate.now()))){
+                int numberOfApartmentReserved =
                         reserveDates.stream().filter(present->present.equals(date)).toList().size();
-                int freeRooms = numberOfRooms - numberOfRoomsReserved;
-                if(freeRooms > 0) {
-                    freeApartmentDtoList.add(new FreeApartmentDto(date,freeRooms));
+                int freeApartment = numberOfApartments - numberOfApartmentReserved;
+                if(freeApartment > 0) {
+                    freeApartmentDtoList.add(new FreeApartmentDto(date, freeApartment));
                 }
             } else {
-                if((date.equals(LocalDate.now()) || date.isAfter(LocalDate.now())) && !freeApartmentDtoList.contains(date)){
-                    freeApartmentDtoList.add(new FreeApartmentDto(date,  numberOfRooms));
+                if(date.equals(LocalDate.now()) || date.isAfter(LocalDate.now())){
+                    freeApartmentDtoList.add(new FreeApartmentDto(date,  numberOfApartments));
                 }
             }
         }
@@ -163,8 +189,6 @@ public class IReservationServiceImpl implements IReservationService {
         */
         List<DateApartmentsDto> desiredA1Apartments = new ArrayList<>();
         List<DateApartmentsDto> desiredA2Apartments = new ArrayList<>();
-        List<Reservation> reservationList = new ArrayList<>();
-        List<ReservationDates> reservationDateList = new ArrayList<>();
         List<DateApartmentsDto> listOfBookedApartment = new ArrayList<>();
 
         reservationDto.getApartments().forEach(apartment -> {
