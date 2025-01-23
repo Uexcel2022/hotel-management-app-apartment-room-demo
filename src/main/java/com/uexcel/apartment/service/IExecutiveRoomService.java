@@ -6,8 +6,8 @@ import com.uexcel.apartment.dto.ReservedRoomInFoDto;
 import java.util.List;
 import java.util.Map;
 
-public interface IExecutiveRoomService {
-    ReservedRoomInFoDto getRegularRoomByRoomNumber(String roomNumber);
-    Map<String, List<AvailableApartmentDto>> getFreeRoomsByDays(Integer numberOfDays);
-    Map<String,List<AvailableApartmentDto>> getFreeRoomsByMonth(String monthName);
+public interface IApartmentService {
+    ReservedRoomInFoDto getApartmentByApartmentNumber(String roomNumber);
+    Map<String, List<AvailableApartmentDto>> getFreeApartmentByDays(Integer numberOfDays,String apartmentCode);
+    Map<String,List<AvailableApartmentDto>> getFreeApartmentByMonth(String monthName,String apartmentCode);
 }
