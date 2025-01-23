@@ -8,8 +8,8 @@ import com.uexcel.apartment.dto.ResponseDto;
 import java.util.List;
 
 public interface IReservationService {
-    List<FreeApartmentDto> getFreeRoomsByMonth(String monthNAme);
-    List<FreeApartmentDto> getFreeRoomsByDays(Integer days);
+    List<FreeApartmentDto> getFreeApartmentByMonth(String monthNAme,String apartmentCode);
+    List<FreeApartmentDto> getFreeApartmentByDays(Integer days,String apartmentCode);
     ReservationResponseDto saveReservation(ReservationDto reservationDto);
     ResponseDto deletePastReservations();
 }
